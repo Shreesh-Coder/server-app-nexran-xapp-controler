@@ -13,7 +13,7 @@ def send_iot_sensor_data(base_url, data):
         print(f"Error: {response.status_code}, {response.json()}")
 
 if __name__ == '__main__':
-    base_url = 'http://172.16.0.1:5000'  # Flask server URL
+    base_url = 'http://172.16.0.1:2345'  # Flask server URL
 
     iot_sensor_data = {
         "Date": "2023-10-05",

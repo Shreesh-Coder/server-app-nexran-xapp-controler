@@ -74,7 +74,7 @@ class EndUserService(Resource):
         result = {
             'ue_id': ue_id,
             'predictions': predictions,
-            'message': 'Transport options predicted and UE allocated to fast slice.'
+            'message': 'Transport options predicted and UE allocated to normal slice.'
         }
 
         return result, 201
@@ -95,14 +95,32 @@ class EndUserData(Resource):
         with data_lock:
             return jsonify(end_user_data)
 
+# Slice Switch API Resource
+class SwitchSlice(Resource):
+    def post(self):
+        # Extract data from the incoming request
+        data = request.get_json()
+        ue_id = data.get('ue_id')
+        slice_name = data.get('slice_name')
+
+        # Validate the input data
+        if not ue_id or not slice_name:
+            return {"error": "ue_id and slice_name are required."}, 400
+        
+        # Perform the slice switch, which also handles UE deletion from other slices
+        slice_switch(ue_id, slice_name)
+        
+        return {"message": "UE slice binding successfully switched."}, 200
+
 # Adding resources to the API
 api.add_resource(IoTSensorService, '/iot_sensor')
 api.add_resource(EndUserService, '/end_user')
 api.add_resource(IoTSensorData, '/iot_sensor_data')
 api.add_resource(EndUserData, '/end_user_data')
+api.add_resource(SwitchSlice, '/slice_swtich')
 
 def run_app():
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=2345, debug=True, use_reloader=False)
 
 def perform_prediction(end_user_request):
     """
@@ -150,11 +168,12 @@ def perform_prediction(end_user_request):
 
         return available_options
 
-def allocate_ue_slice(ue_id):
+def allocate_ue_slice(ue_id, slice='normal'):
     """
     Use NexranClient to allocate the UE to the fast slice.
     """
     # First, ensure the UE exists in xApp
+    time.sleep(2)
     response = nexran_client.post_ue({'imsi': ue_id})
     if response.status_code  in [200, 201]:
         print(f'Successfully added UE {ue_id} to xApp')
@@ -165,7 +184,7 @@ def allocate_ue_slice(ue_id):
         return
 
     # Ensure the fast slice exists
-    slice_name = 'fast'
+    slice_name = slice
     slice_response = nexran_client.get_slice(slice_name)
     if slice_response.status_code not in [200, 201]:
         # Create the fast slice if it doesn't exist
@@ -173,7 +192,7 @@ def allocate_ue_slice(ue_id):
             'name': slice_name,
             'allocation_policy': {
                 'type': 'proportional',
-                'share': 1024
+                'share': 1024 if slice_name == 'fast' else 256
             }
         }
         create_slice_resp = nexran_client.post_slice(slice_data)
@@ -191,6 +210,54 @@ def allocate_ue_slice(ue_id):
         print(f'UE {ue_id} is already bound to slice {slice_name}.')
     else:
         print(f'Failed to bind UE {ue_id} to slice {slice_name}: {bind_response.text}')
+
+def slice_switch(ue_id, slice_name):
+    
+    slices_response = nexran_client.get_slices()
+   
+    # Parse the response JSON content into a dictionary
+    slices = slices_response.json()
+    
+    slice_names = [slice_data['name'] for slice_data in slices['slices']]
+    print(slice_names)
+    for slice in slice_names:
+        if slice_name != slice:
+            print(delete_ue_from_slice(ue_id, slice))
+            print(slice)
+    
+
+    allocate_ue_slice(ue_id, slice_name)
+
+
+def delete_ue_from_slice(ue_id, slice_name):
+    # Log that the deletion process is starting
+    print(f"Starting to delete UE {ue_id} from slice {slice_name}")
+
+    # Delete UE slice binding
+    response = nexran_client.delete_slice_ue_binding(slice_name, ue_id)
+    print(f"DELETE request to slice {slice_name} for UE {ue_id} returned status {response.status_code}")
+    time.sleep(1)
+    # Check if the response from the DELETE request was successful
+
+    print(f"UE {ue_id} successfully unbound from slice {slice_name}")
+    
+    # Attempt to delete the UE from the system
+    delete_ue_response = nexran_client.delete_ue(ue_id)
+    print(f"Deleted UE {ue_id} from the system: {delete_ue_response}")
+    time.sleep(1)
+    
+    # Attempt to delete the slice from the system
+    nexran_client.delete_slice(slice_name)
+    print(f"Deleted slice {slice_name} from the system.")
+    time.sleep(1)
+    
+    return  204
+
+
+
+
+
+
 
 if __name__ == '__main__':
     nexran_ip = get_nexran_ip()
