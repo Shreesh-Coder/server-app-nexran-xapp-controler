@@ -1,6 +1,4 @@
-Here’s a draft README file for your GitHub repository based on the description and the image you provided:
 
----
 
 # NexRAN XApp Controller
 
@@ -65,6 +63,3 @@ Feel free to fork this repository and contribute to its development by creating 
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
----
-
-You can adjust or expand this README file according to your needs!
