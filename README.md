@@ -2,7 +2,7 @@
 
 # NexRAN XApp Controller
 
-This repository contains the NexRAN XApp Controller application that communicates with an open-source XApp (by OAIC) to control the Radio Access Network (RAN) and predict bus capacity based on data received from IoT devices and end-users. 
+This repository contains the NexRAN XApp Controller application that communicates with an open-source XApp (by OAIC) to control the Radio Access Network (RAN) by predicting bus capacity based on data received from IoT devices and end-users. 
 
 ## Overview
 
